@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\Product;
 
 use App\Enums\ProductStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\IsAdminMiddleware;
+use App\Http\Middleware\IsDraftMiddleware;
 use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use App\Http\Requests\ProductReview\StoreReviewRequest;
@@ -12,14 +14,12 @@ use App\Models\ProductImage;
 use App\Models\ProductReview;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Symfony\Component\HttpFoundation\Response;
 
-class ProductController extends Controller
+class ProductResourceController extends Controller implements HasMiddleware
 {
-    public function __construct()
-    {
-        auth()->login(User::query()->inRandomOrder()->first());
-    }
 
     public function index()
     {
@@ -41,12 +41,6 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        if($product->status === ProductStatus::Draft) {
-            return response()->json([
-                'error' => 'Товар не доступен'
-            ], 404);
-        }
-
         return [
             'id' => $product->id,
             'name' => $product->name,
@@ -117,5 +111,23 @@ class ProductController extends Controller
         }
         $product->refresh();
         return response()->json($product, Response::HTTP_ACCEPTED);
+    }
+
+    public function destroy(Product $product) {
+
+        $product->delete();
+
+        return response()->json([
+            'success' => true
+        ])->setStatusCode(Response::HTTP_NO_CONTENT);
+    }
+
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('auth:sanctum', only: ['store', 'update', 'destroy', 'review_store']),
+            new Middleware(IsAdminMiddleware::class, only: ['store', 'update', 'destroy']),
+            new Middleware(IsDraftMiddleware::class, only: ['show']),
+        ];
     }
 }
