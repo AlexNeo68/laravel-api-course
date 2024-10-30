@@ -9,6 +9,8 @@ use App\Http\Middleware\IsDraftMiddleware;
 use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use App\Http\Requests\ProductReview\StoreReviewRequest;
+use App\Http\Resources\Product\ProductIndexResource;
+use App\Http\Resources\Product\ProductShowResource;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductReview;
@@ -28,36 +30,12 @@ class ProductResourceController extends Controller implements HasMiddleware
             ->whereStatus(ProductStatus::Published)
             ->get();
 
-        return $products->map(fn(Product $product) => [
-            'id' => $product->id,
-            'name' => $product->name,
-            'description' => $product->description,
-            'price' => $product->price,
-            'count' => $product->count,
-            'status' => $product->status,
-            'rating' => $product->getRating(),
-        ]);
+        return ProductIndexResource::collection($products);
     }
 
     public function show(Product $product)
     {
-        return [
-            'id' => $product->id,
-            'name' => $product->name,
-            'description' => $product->description,
-            'count' => $product->count,
-            'price' => $product->price,
-            'status' => $product->status,
-            'rating' => $product->getRating(),
-            'images' => $product->images->map(fn(ProductImage $productImage) => $productImage->url),
-            'reviews' => $product->reviews->map(fn(ProductReview $productReview) => [
-                'id' => $productReview->id,
-                'author' => $productReview->user->name,
-                'text' => $productReview->text,
-                'rating' => $productReview->rating,
-                'created' => $productReview->created_at->format('Y-m-d h:i'),
-            ]),
-        ];
+        return new ProductShowResource($product);
     }
 
     public function store(StoreProductRequest $request){

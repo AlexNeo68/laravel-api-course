@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use App\Http\Requests\ProductReview\StoreReviewRequest;
+use App\Http\Resources\Product\ProductIndexResource;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductReview;
@@ -21,22 +22,14 @@ class ProductController extends Controller
         auth()->login(User::query()->inRandomOrder()->first());
     }
 
-    public function index()
+    public function index(): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
     {
         $products = Product::query()
             ->select(['id', 'name', 'description', 'price', 'count', 'status'])
             ->whereStatus(ProductStatus::Published)
             ->get();
 
-        return $products->map(fn(Product $product) => [
-            'id' => $product->id,
-            'name' => $product->name,
-            'description' => $product->description,
-            'price' => $product->price,
-            'count' => $product->count,
-            'status' => $product->status,
-            'rating' => $product->getRating(),
-        ]);
+        return ProductIndexResource::collection($products);
     }
 
     public function show(Product $product)

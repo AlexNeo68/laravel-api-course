@@ -45,6 +45,11 @@ class Product extends Model
         return $this->reviews()->count() ? round($this->reviews()->avg('rating'), 1) : 0;
     }
 
+    public function imagesList()
+    {
+        return $this->images->map(fn(ProductImage $productImage) => $productImage->url);
+    }
+
 
     public function isDraft(): bool
     {
