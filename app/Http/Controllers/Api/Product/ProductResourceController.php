@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\Product;
 
-use App\Enums\ProductStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\IsAdminMiddleware;
 use App\Http\Middleware\IsDraftMiddleware;
@@ -12,23 +11,20 @@ use App\Http\Requests\ProductReview\StoreReviewRequest;
 use App\Http\Resources\Product\ProductIndexResource;
 use App\Http\Resources\Product\ProductShowResource;
 use App\Models\Product;
-use App\Models\ProductImage;
-use App\Models\ProductReview;
-use App\Models\User;
-use Illuminate\Http\Request;
+use App\Services\Product\ProductService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Symfony\Component\HttpFoundation\Response;
+use App\Facades\Product as ProductFacade;
 
 class ProductResourceController extends Controller implements HasMiddleware
 {
 
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
-        $products = Product::query()
-            ->select(['id', 'name', 'description', 'price', 'count', 'status'])
-            ->whereStatus(ProductStatus::Published)
-            ->get();
+        $products = ProductFacade::getPublishedProducts();
 
         return ProductIndexResource::collection($products);
     }
@@ -38,66 +34,35 @@ class ProductResourceController extends Controller implements HasMiddleware
         return new ProductShowResource($product);
     }
 
-    public function store(StoreProductRequest $request){
-
-        $product = auth()->user()->products()->create([
-            'name' => $request->str('name'),
-            'description' => $request->str('description'),
-            'count' => $request->integer('count'),
-            'price' => $request->str('price'),
-            'status' => $request->enum('status', ProductStatus::class),
-        ]);
-
-        if ($request->file('images')){
-            foreach($request->file('images') as $file) {
-
-                $url = $file->storePublicly('images');
-                if($url) {
-                    $product->images()->create([
-                        'url' => url($url)
-                    ]);
-                }
-
-            }
-        }
-
-
-        return response()->json($product, 201);
-    }
-
-    public function review_store(StoreReviewRequest $request, Product $product){
-        $review = $product->reviews()->create([
-            'user_id' => auth()->user()->id,
-            'text' => $request->str('text'),
-            'rating' => $request->integer('rating'),
-        ]);
-        return response()->json($review, 201);
-    }
-
-    public function update(UpdateProductRequest $request, Product $product): \Illuminate\Http\JsonResponse
+    public function store(StoreProductRequest $request): JsonResponse
     {
-        if($request->method() === 'PUT'){
-            $product->update([
-                'name' => $request->input('name'),
-                'description' => $request->input('description'),
-                'count' => $request->input('count'),
-                'price' => $request->input('price'),
-                'status' => $request->input('status'),
-            ]);
-        } else {
-            $product->update($request->all());
-        }
-        $product->refresh();
+
+        $product = ProductFacade::createProduct($request->data());
+
+        return response()->json(new ProductShowResource($product), 201);
+    }
+
+    public function review_store(StoreReviewRequest $request, Product $product, ProductService $productService){
+        $productService->setProduct($product);
+        return response()->json($productService->createReview($request), 201);
+    }
+
+    public function update(UpdateProductRequest $request, Product $product, ProductService $productService): JsonResponse
+    {
+        $productService->setProduct($product);
+        $product = $productService->updateProduct($request);
         return response()->json($product, Response::HTTP_ACCEPTED);
     }
 
-    public function destroy(Product $product) {
+    public function destroy(Product $product): JsonResponse
+    {
 
         $product->delete();
+        return responseOk()->setStatusCode(Response::HTTP_NO_CONTENT);
 
-        return response()->json([
-            'success' => true
-        ])->setStatusCode(Response::HTTP_NO_CONTENT);
+//        return response()->json([
+//            'success' => true
+//        ])->setStatusCode(Response::HTTP_NO_CONTENT);
     }
 
     public static function middleware(): array

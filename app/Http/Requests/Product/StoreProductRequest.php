@@ -4,6 +4,7 @@ namespace App\Http\Requests\Product;
 
 use App\Enums\ProductStatus;
 use App\Http\Requests\ApiRequest;
+use App\Services\Product\DTOs\ProductDTO;
 use Illuminate\Validation\Rules\Enum;
 
 
@@ -26,10 +27,16 @@ class StoreProductRequest extends ApiRequest
     {
         return [
             'name' => 'required|string',
-            'string' => 'string',
+            'desc' => 'string',
             'count' => 'required|integer',
             'price' => 'required|numeric',
-            'status' => ['required', new Enum(ProductStatus::class)],
+            'state' => ['required', new Enum(ProductStatus::class)],
+            'images' => 'array',
         ];
+    }
+
+    public function data(): ProductDTO
+    {
+        return ProductDTO::from($this->validated());
     }
 }
